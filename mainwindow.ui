@@ -1,38 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Dialog</class>
- <widget class="QDialog" name="Dialog">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="enabled">
+   <bool>true</bool>
+  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1079</width>
-    <height>799</height>
+    <width>957</width>
+    <height>752</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>muhIDS</string>
   </property>
-  <widget class="QTableWidget" name="tableWidget">
+  <property name="tabShape">
+   <enum>QTabWidget::Rounded</enum>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QPushButton" name="pushButton">
+    <property name="geometry">
+     <rect>
+      <x>720</x>
+      <y>570</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PushButton</string>
+    </property>
+   </widget>
+   <widget class="QTableWidget" name="tableWidget">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>20</y>
+      <width>871</width>
+      <height>541</height>
+     </rect>
+    </property>
+    <property name="showGrid">
+     <bool>false</bool>
+    </property>
+    <column>
+     <property name="text">
+      <string>Source IP</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Source Port</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Destination IP</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Destination Port</string>
+     </property>
+    </column>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
-     <x>100</x>
-     <y>70</y>
-     <width>871</width>
-     <height>541</height>
+     <x>0</x>
+     <y>0</y>
+     <width>957</width>
+     <height>21</height>
     </rect>
    </property>
-   <column>
-    <property name="text">
-     <string>Source IP</string>
-    </property>
-   </column>
-   <column>
-    <property name="text">
-     <string>Destination IP</string>
-    </property>
-   </column>
   </widget>
+  <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <resources/>
  <connections/>

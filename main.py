@@ -1,6 +1,6 @@
 from ast import main
 from PyQt5.QtWidgets import QMainWindow, QTableWidget, QApplication, QPushButton, QLineEdit
-from PyQt5 import uic, QtWidgets, QtCore
+from PyQt5 import uic, QtWidgets, QtCore, QtGui
 from scapy.all import conf, sniff, wrpcap, ETH_P_ALL, Ether
 
 from multiprocessing import Process, Event, Queue
@@ -10,6 +10,8 @@ import sys
 from time import sleep, time
 
 from signature import Signature
+from importer import RULES
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -33,13 +35,18 @@ class MainWindow(QMainWindow):
         self.show()
 
     # paket analiz edildikten sonra çağırılacak
-    @QtCore.pyqtSlot(str, str, str, str)
-    def fill_tableWidget(self, src_ip, src_port, dest_ip, dest_port):
+    @QtCore.pyqtSlot(str, str, str, str, bool)
+    def fill_tableWidget(self, src_ip, src_port, dest_ip, dest_port, blocked):
         self.tableWidget.setRowCount(self.row+1)
         self.tableWidget.setItem(self.row, 0, QtWidgets.QTableWidgetItem(src_ip))
         self.tableWidget.setItem(self.row, 1, QtWidgets.QTableWidgetItem(src_port))
         self.tableWidget.setItem(self.row, 2, QtWidgets.QTableWidgetItem(dest_ip))
         self.tableWidget.setItem(self.row, 3, QtWidgets.QTableWidgetItem(dest_port))
+        if (blocked):
+            self.tableWidget.item(self.row, 0).setBackground(QtGui.QColor(255,0,0))
+            self.tableWidget.item(self.row, 1).setBackground(QtGui.QColor(255,0,0))
+            self.tableWidget.item(self.row, 2).setBackground(QtGui.QColor(255,0,0))
+            self.tableWidget.item(self.row, 3).setBackground(QtGui.QColor(255,0,0))
         self.row += 1
 
     def startButtonClicked(self):
@@ -106,7 +113,7 @@ class Analyzer(QtCore.QThread):
         self.task_queue = task_queue
         self.with_packer_num = False
 
-    new_signal = QtCore.pyqtSignal(str, str, str, str)
+    new_signal = QtCore.pyqtSignal(str, str, str, str, bool)
 
     def is_dead(self):
         return self.stop.is_set()
@@ -115,21 +122,18 @@ class Analyzer(QtCore.QThread):
         summary = packet.summary()
         try:
             packet_signature = Signature(packet)
-            self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port)
         except ValueError as err:
             print(f"[@] {err} {summary}")
-        # else:
-        #     for offset, rule in enumerate(RULES):
-        #         if packet_signature == rule:
-        #             msg = f"{RULES[offset].__repr__()} ~> {summary}"
-        #             print(f"[!!] {msg}")
-        #             if self.with_packer_num:
-        #                 msg = (f"p{index} {msg}")
-        #             self.file.write(msg+'\n')
-        #             self.file.flush()
-        #             return True
-        #     print(f"[=] {summary}")
-        #     return False
+        else:
+            for offset, rule in enumerate(RULES):
+                if packet_signature == rule:
+                    msg = f"{RULES[offset].__repr__()} ~> {summary}"
+                    print(f"[!!] {msg}")
+                    self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port, True)
+                    return True
+            print(f"[=] {summary}")
+            self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port, False)
+            return False
 
     def run(self):
         index = 1

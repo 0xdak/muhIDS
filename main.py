@@ -1,29 +1,33 @@
 from ast import main
-from PyQt5.QtWidgets import QMainWindow, QTableWidget, QApplication, QPushButton
+from PyQt5.QtWidgets import QMainWindow, QTableWidget, QApplication, QPushButton, QLineEdit
 from PyQt5 import uic, QtWidgets, QtCore
 from scapy.all import conf, sniff, wrpcap, ETH_P_ALL
 
+from multiprocessing import Process, Event, Queue
+
 from sys import argv
 import sys
-import time
+from time import sleep, time
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         uic.loadUi("mainwindow.ui", self)
+        
 
         self.tableWidget = self.findChild(QTableWidget, "tableWidget") 
-        self.pushButton  = self.findChild(QPushButton, "pushButton")
+        self.txtInterface = self.findChild(QLineEdit, "txtInterface") 
+        self.startButton  = self.findChild(QPushButton, "pushButton")
         
+        self.INTERFACE = "wlan0"
         
-        self.pushButton.clicked.connect(self.pushButtonClicked)
+        self.startButton.clicked.connect(self.startButtonClicked)
 
         self.row = 0
 
-        self.sniffer = Sniffer()
-        self.sniffer.new_signal.connect(self.fill_tableWidget)
-        self.sniffer.start()
+        self.QUEUE = Queue()
+        self.TIMESTAMP = str(time()).split('.')[0]
         
         self.show()
 
@@ -37,24 +41,58 @@ class MainWindow(QMainWindow):
         self.tableWidget.setItem(self.row, 3, QtWidgets.QTableWidgetItem(dest_port))
         self.row += 1
 
-    def pushButtonClicked(self):
-        for i in range(100000):
-            self.fill_tableWidget(str(i), i, i, i)
+    def startButtonClicked(self):
+        self.INTERFACE = self.txtInterface.text()
+        self.SNIFFER = Sniffer(self.INTERFACE, self.QUEUE, self.TIMESTAMP)
+        self.SNIFFER.new_signal.connect(self.fill_tableWidget)
+        self.SNIFFER.start()
 
     def closeEvent(self, event):
-        print('closing')
+        print('[*] stopping muhIDS')
+        # LOG_FILE.close()
+        # ANALYZER.join()
+        sleep(.1)
+        self.SNIFFER.join()
+        print('[*] bye')
 
 
 
 class Sniffer(QtCore.QThread):
+    def __init__(self, interface, queue, name):
+        super(Sniffer, self).__init__()
+        self.daemon = True
+        self.socket = None
+        self.interface = interface
+        self.stop = Event()
+        self.que = queue
+        self.log_name = name
+        
     new_signal = QtCore.pyqtSignal(str, str, str, str)
 
     def run(self):
+        # p = Process(target=job_function, args=(self.queue, self.job_input))
+        # p.start()
         i = 0
-        while True:
-            time.sleep(.01)
-            self.new_signal.emit(str(i), str(i), str(i), str(i))
-            i += 1
+        self.socket = conf.L2listen(type=ETH_P_ALL, iface=self.interface)
+        packets = sniff(opened_socket=self.socket,
+                        prn=self.analyze_packet,
+                        stop_filter=self.stop_sniffering)
+
+
+
+            # time.sleep(.01)
+            # self.new_signal.emit(str(i), str(i), str(i), str(i))
+            # i += 1
+    
+    def analyze_packet(self, packet):
+        self.que.put(bytes(packet))
+
+    def stop_sniffering(self, _):
+        return self.stop.is_set()
+
+    def join(self, timeout=None):
+        self.stop.set()
+        super().join(timeout)
 
         
 app = QApplication(argv)

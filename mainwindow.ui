@@ -23,8 +23,8 @@
    <widget class="QPushButton" name="pushButton">
     <property name="geometry">
      <rect>
-      <x>720</x>
-      <y>570</y>
+      <x>740</x>
+      <y>620</y>
       <width>75</width>
       <height>23</height>
      </rect>
@@ -36,8 +36,8 @@
    <widget class="QTableWidget" name="tableWidget">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>20</y>
+      <x>20</x>
+      <y>60</y>
       <width>871</width>
       <height>541</height>
      </rect>
@@ -65,6 +65,19 @@
       <string>Destination Port</string>
      </property>
     </column>
+   </widget>
+   <widget class="QLineEdit" name="txtInterface">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>20</y>
+      <width>113</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>wlan0</string>
+    </property>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">

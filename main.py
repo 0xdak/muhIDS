@@ -35,18 +35,22 @@ class MainWindow(QMainWindow):
         self.show()
 
     # paket analiz edildikten sonra çağırılacak
-    @QtCore.pyqtSlot(str, str, str, str, bool)
-    def fill_tableWidget(self, src_ip, src_port, dest_ip, dest_port, blocked):
+    @QtCore.pyqtSlot(str, str, str, str, str, bool)
+    def fill_tableWidget(self, src_ip, src_port, dest_ip, dest_port, rule_id, blocked):
         self.tableWidget.setRowCount(self.row+1)
-        self.tableWidget.setItem(self.row, 0, QtWidgets.QTableWidgetItem(src_ip))
-        self.tableWidget.setItem(self.row, 1, QtWidgets.QTableWidgetItem(src_port))
-        self.tableWidget.setItem(self.row, 2, QtWidgets.QTableWidgetItem(dest_ip))
-        self.tableWidget.setItem(self.row, 3, QtWidgets.QTableWidgetItem(dest_port))
+        self.tableWidget.setItem(self.row, 0, QtWidgets.QTableWidgetItem(str(self.row+1)))
+        self.tableWidget.setItem(self.row, 1, QtWidgets.QTableWidgetItem(rule_id))
+        self.tableWidget.setItem(self.row, 2, QtWidgets.QTableWidgetItem(src_ip))
+        self.tableWidget.setItem(self.row, 3, QtWidgets.QTableWidgetItem(src_port))
+        self.tableWidget.setItem(self.row, 4, QtWidgets.QTableWidgetItem(dest_ip))
+        self.tableWidget.setItem(self.row, 5, QtWidgets.QTableWidgetItem(dest_port))
         if (blocked):
             self.tableWidget.item(self.row, 0).setBackground(QtGui.QColor(255,0,0))
             self.tableWidget.item(self.row, 1).setBackground(QtGui.QColor(255,0,0))
             self.tableWidget.item(self.row, 2).setBackground(QtGui.QColor(255,0,0))
             self.tableWidget.item(self.row, 3).setBackground(QtGui.QColor(255,0,0))
+            self.tableWidget.item(self.row, 4).setBackground(QtGui.QColor(255,0,0))
+            self.tableWidget.item(self.row, 5).setBackground(QtGui.QColor(255,0,0))
         self.row += 1
 
     def startButtonClicked(self):
@@ -113,7 +117,7 @@ class Analyzer(QtCore.QThread):
         self.task_queue = task_queue
         self.with_packer_num = False
 
-    new_signal = QtCore.pyqtSignal(str, str, str, str, bool)
+    new_signal = QtCore.pyqtSignal(str, str, str, str, str, bool)
 
     def is_dead(self):
         return self.stop.is_set()
@@ -129,10 +133,11 @@ class Analyzer(QtCore.QThread):
                 if packet_signature == rule:
                     msg = f"{RULES[offset].__repr__()} ~> {summary}"
                     print(f"[!!] {msg}")
-                    self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port, True)
+                    #TODO RULES[offset].__repr__().split()[1] değişecek, !! tehlikeli index out of range hatası verebilir
+                    self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port, RULES[offset].__repr__().split()[1], True)
                     return True
             print(f"[=] {summary}")
-            self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port, False)
+            self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port, "",  False)
             return False
 
     def run(self):

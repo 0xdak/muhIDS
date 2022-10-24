@@ -1,7 +1,7 @@
 from ast import main
 from PyQt5.QtWidgets import QMainWindow, QTableWidget, QApplication, QPushButton, QLineEdit
 from PyQt5 import uic, QtWidgets, QtCore
-from scapy.all import conf, sniff, wrpcap, ETH_P_ALL
+from scapy.all import conf, sniff, wrpcap, ETH_P_ALL, Ether
 
 from multiprocessing import Process, Event, Queue
 
@@ -9,6 +9,7 @@ from sys import argv
 import sys
 from time import sleep, time
 
+from signature import Signature
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -44,13 +45,16 @@ class MainWindow(QMainWindow):
     def startButtonClicked(self):
         self.INTERFACE = self.txtInterface.text()
         self.SNIFFER = Sniffer(self.INTERFACE, self.QUEUE, self.TIMESTAMP)
-        self.SNIFFER.new_signal.connect(self.fill_tableWidget)
         self.SNIFFER.start()
+
+        self.ANALYZER = Analyzer(self.QUEUE)
+        self.ANALYZER.new_signal.connect(self.fill_tableWidget)
+        self.ANALYZER.start()
+
 
     def closeEvent(self, event):
         print('[*] stopping muhIDS')
-        # LOG_FILE.close()
-        # ANALYZER.join()
+        self.ANALYZER.join()
         sleep(.1)
         self.SNIFFER.join()
         print('[*] bye')
@@ -67,7 +71,6 @@ class Sniffer(QtCore.QThread):
         self.que = queue
         self.log_name = name
         
-    new_signal = QtCore.pyqtSignal(str, str, str, str)
 
     def run(self):
         # p = Process(target=job_function, args=(self.queue, self.job_input))
@@ -80,7 +83,7 @@ class Sniffer(QtCore.QThread):
 
 
 
-            # time.sleep(.01)
+            # sleep(.01)
             # self.new_signal.emit(str(i), str(i), str(i), str(i))
             # i += 1
     
@@ -94,6 +97,49 @@ class Sniffer(QtCore.QThread):
         self.stop.set()
         super().join(timeout)
 
+
+class Analyzer(QtCore.QThread):
+    def __init__(self, task_queue):
+        super(Analyzer, self).__init__()
+        self.daemon = True
+        self.stop = Event()
+        self.task_queue = task_queue
+        self.with_packer_num = False
+
+    new_signal = QtCore.pyqtSignal(str, str, str, str)
+
+    def is_dead(self):
+        return self.stop.is_set()
+
+    def is_intrusion(self, packet, index):
+        summary = packet.summary()
+        try:
+            packet_signature = Signature(packet)
+            self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port)
+        except ValueError as err:
+            print(f"[@] {err} {summary}")
+        # else:
+        #     for offset, rule in enumerate(RULES):
+        #         if packet_signature == rule:
+        #             msg = f"{RULES[offset].__repr__()} ~> {summary}"
+        #             print(f"[!!] {msg}")
+        #             if self.with_packer_num:
+        #                 msg = (f"p{index} {msg}")
+        #             self.file.write(msg+'\n')
+        #             self.file.flush()
+        #             return True
+        #     print(f"[=] {summary}")
+        #     return False
+
+    def run(self):
+        index = 1
+        while not self.is_dead():
+            self.is_intrusion(Ether(self.task_queue.get()), index)
+            index += 1
+
+    def join(self, timeout=None):
+        self.stop.set()
+        super().join(timeout)
         
 app = QApplication(argv)
 UIWindow = MainWindow()

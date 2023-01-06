@@ -88,7 +88,7 @@ class Sniffer(QtCore.QThread):
         # p = Process(target=job_function, args=(self.queue, self.job_input))
         # p.start()
         i = 0
-        self.socket = conf.L2listen(iface=self.interface)
+        self.socket = conf.L2listen(type=ETH_P_ALL,iface=self.interface)
         packets = sniff(opened_socket=self.socket,
                         prn=self.analyze_packet,
                         stop_filter=self.stop_sniffering)

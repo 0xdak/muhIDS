@@ -1,4 +1,5 @@
 from ast import main
+import re
 from PyQt5.QtWidgets import QMainWindow, QTableWidget, QApplication, QPushButton, QLineEdit
 from PyQt5 import uic, QtWidgets, QtCore, QtGui
 from scapy.all import conf, sniff, wrpcap, ETH_P_ALL, Ether
@@ -10,7 +11,7 @@ import sys
 from time import sleep, time
 
 from signature import Signature
-from importer import RULES
+from importer import RULES, REGEX_SQL
 
 
 class MainWindow(QMainWindow):
@@ -139,6 +140,10 @@ class Analyzer(QtCore.QThread):
                     self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,
                     packet_signature.dst_port, RULES[offset].__repr__().split()[1], True)
                     return True
+                # INTERACTION 1: DETECT SQL INJECTION
+                if packet_signature.src_port == "80" or packet_signature.src_port == "443" or packet_signature.dst_port == "80" or packet_signature.dst_port == "443" : 
+                    print(packet_signature.payload)
+                    matches = re.search(REGEX_SQL, "test_str", re.IGNORECASE)
             print(f"[=] {summary}")
             self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
             packet_signature.dst_ip,packet_signature.dst_port, "",  False)

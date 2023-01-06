@@ -51,6 +51,7 @@ class MainWindow(QMainWindow):
             self.tableWidget.item(self.row, 3).setBackground(QtGui.QColor(255,0,0))
             self.tableWidget.item(self.row, 4).setBackground(QtGui.QColor(255,0,0))
             self.tableWidget.item(self.row, 5).setBackground(QtGui.QColor(255,0,0))
+            self.tableWidget.scrollToBottom()
         self.row += 1
 
     def startButtonClicked(self):
@@ -87,7 +88,7 @@ class Sniffer(QtCore.QThread):
         # p = Process(target=job_function, args=(self.queue, self.job_input))
         # p.start()
         i = 0
-        self.socket = conf.L2listen(type=ETH_P_ALL, iface=self.interface)
+        self.socket = conf.L2listen(iface=self.interface)
         packets = sniff(opened_socket=self.socket,
                         prn=self.analyze_packet,
                         stop_filter=self.stop_sniffering)
@@ -124,6 +125,7 @@ class Analyzer(QtCore.QThread):
 
     def is_intrusion(self, packet, index):
         summary = packet.summary()
+        print(str(bytes(packet.payload)))
         try:
             packet_signature = Signature(packet)
         except ValueError as err:
@@ -134,15 +136,18 @@ class Analyzer(QtCore.QThread):
                     msg = f"{RULES[offset].__repr__()} ~> {summary}"
                     print(f"[!!] {msg}")
                     #TODO RULES[offset].__repr__().split()[1] değişecek, !! tehlikeli index out of range hatası verebilir
-                    self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port, RULES[offset].__repr__().split()[1], True)
+                    self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,
+                    packet_signature.dst_port, RULES[offset].__repr__().split()[1], True)
                     return True
             print(f"[=] {summary}")
-            self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,packet_signature.dst_port, "",  False)
+            self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
+            packet_signature.dst_ip,packet_signature.dst_port, "",  False)
             return False
 
     def run(self):
         index = 1
         while not self.is_dead():
+            print(self.task_queue.get())
             self.is_intrusion(Ether(self.task_queue.get()), index)
             index += 1
 

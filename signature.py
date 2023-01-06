@@ -80,10 +80,6 @@ class Signature(object):
         return f"rule {self.s_id}: {self.__str__()}"
 
     def __eq__(self, other):
-        """
-        nicht kommutativ
-        self immer ohne !/any/<>/portRange
-        """
         if isinstance(self, other.__class__):
 
             if other.dir == '<>':

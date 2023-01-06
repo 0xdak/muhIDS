@@ -26,7 +26,7 @@ REGEX = reg_comp(r""" ^
 try:
     RULEPATH = argv[1]
 except IndexError:
-    RULEPATH = 'eval.rules'
+    RULEPATH = 'default.rules'
 finally:
     print(f"[*] loading {RULEPATH}")
 

@@ -2,6 +2,9 @@
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
+  <property name="windowModality">
+   <enum>Qt::NonModal</enum>
+  </property>
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -9,9 +12,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>957</width>
-    <height>752</height>
+    <width>1920</width>
+    <height>1080</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>muhIDS</string>
@@ -23,24 +32,30 @@
    <widget class="QPushButton" name="pushButton">
     <property name="geometry">
      <rect>
-      <x>740</x>
-      <y>620</y>
+      <x>330</x>
+      <y>20</y>
       <width>75</width>
       <height>23</height>
      </rect>
     </property>
     <property name="text">
-     <string>PushButton</string>
+     <string>Başla</string>
     </property>
    </widget>
    <widget class="QTableWidget" name="tableWidget">
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>60</y>
-      <width>871</width>
-      <height>541</height>
+      <y>50</y>
+      <width>1800</width>
+      <height>651</height>
      </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
     </property>
     <property name="autoFillBackground">
      <bool>false</bool>
@@ -60,6 +75,18 @@
     <property name="rowCount">
      <number>0</number>
     </property>
+    <attribute name="horizontalHeaderCascadingSectionResizes">
+     <bool>false</bool>
+    </attribute>
+    <attribute name="horizontalHeaderDefaultSectionSize">
+     <number>150</number>
+    </attribute>
+    <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
+     <bool>false</bool>
+    </attribute>
+    <attribute name="horizontalHeaderStretchLastSection">
+     <bool>true</bool>
+    </attribute>
     <column>
      <property name="text">
       <string>ID</string>
@@ -101,7 +128,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>wlan0</string>
+     <string>eth0</string>
     </property>
    </widget>
   </widget>
@@ -110,7 +137,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>957</width>
+     <width>1920</width>
      <height>21</height>
     </rect>
    </property>

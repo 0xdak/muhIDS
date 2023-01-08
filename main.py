@@ -1,5 +1,6 @@
 from ast import main
 import re
+import subprocess
 from PyQt5.QtWidgets import QMainWindow, QTableWidget, QApplication, QPushButton, QLineEdit
 from PyQt5 import uic, QtWidgets, QtCore, QtGui
 from scapy.all import conf, sniff, wrpcap, ETH_P_ALL, Ether
@@ -113,42 +114,39 @@ class Sniffer(QtCore.QThread):
         super().join(timeout)
 
 def arpcheck(packet):
-    if packet.haslayer(scapy.ARP) and packet[scapy.ARP].op == 2:
+    try:
         packet.show()
-        try:
-            ipadd = packet[scapy.ARP].psrc
-            
-            p = Ether(dst='ff:ff:ff:ff:ff:ff')/scapy.ARP(pdst=ipadd)
-            result = scapy.srp(p, timeout=3, verbose=False)[0]
-            real_mac = result[0][1].hwsrc
 
-            response_mac = packet[scapy.ARP].hwsrc
-                    # if they're different, definitely there is an attack
-            if real_mac != response_mac:
-                print(f"[!] You are under attack, REAL-MAC: {real_mac.upper()}, FAKE-MAC: {response_mac.upper()}")
-                return True
-        except IndexError:
+        ipadd = packet[scapy.ARP].psrc
+        src_mac = packet[scapy.ARP].hwsrc
+        
+        cmd = "arp -n | grep "+ src_mac +" | awk '{print $1,$3}'"
+        result = subprocess.check_output(cmd, shell=True)
+        result = result.decode('utf-8')
+        maca_ait_ipler = result.split('\n')
+        sadece_ipler = []
+
+        for i in maca_ait_ipler:
+            sadece_ipler.append(i.split(' ')[0])
+
+        if sadece_ipler == ['']:
             return False
-        return False
-        arp_request = scapy.ARP(pdst=ipadd)
-        br = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-        arp_req_br = br / arp_request
-        list_1 = scapy.srp(arp_req_br, timeout=5,
-                       verbose=False)[0]
-        try:
-            print(list_1)
-            print("bakıyoruz list_1")
-            originalmac = list_1[0][1].hwsrc
-            print(originalmac, " - ", responsemac)
-            # responsemac will get response of the MAC
-            responsemac = packet[scapy.ARP].hwsrc
-            if originalmac != responsemac:
-                print("[*] ALERT!!! You are under attack, ARP table is being poisoned.!")
-            # print(packet.show())
+        print("Kaynak MAC: ", src_mac)
+        print("Kaynak MAC'e ait IP'ler: ", sadece_ipler)
+        print("olduğu söylenilen ip: ", ipadd)
+
+        # print("kaynak ip: ", ipadd)
+        # print("olması gereken mac: ",real_mac)
+        # print("kaynağın mac'i: ", response_mac)
+
+        if ipadd not in sadece_ipler:
+            print(f"[!] You are under attack,")
             return True
-        except:
-            print("hata verdi list_1")
-            return False
+        
+        print("-------------------------------------------")
+    except IndexError:
+        return False
+    return False
 
 def get_httppayload(packet):
     http_payload = b""
@@ -196,12 +194,21 @@ class Analyzer(QtCore.QThread):
             packet_signature = Signature(packet)
         except ValueError as err: # ARP olabilir.
             print(f"[@] {err} {summary}")
-            if arpcheck(packet):
-                self.new_signal.emit(packet[scapy.ARP].psrc,"ARP",packet[scapy.ARP].pdst,
-                   "ARP", "", True, payload) 
+            if packet.haslayer(scapy.ARP) and packet[scapy.ARP].op == 2:
+                if arpcheck(packet):
+                    self.new_signal.emit(packet[scapy.ARP].psrc,"ARP",packet[scapy.ARP].pdst,
+                    "ARP", "ARP Poisoning", True, payload) 
+                    return True
+                else:
+                    self.new_signal.emit(packet[scapy.ARP].psrc,"ARP",packet[scapy.ARP].pdst,
+                    "ARP", "", False, "hwsrc: " + packet[scapy.ARP].hwsrc + "| hwdst: " + packet[scapy.ARP].hwdst) 
            
         else:
             for offset, rule in enumerate(RULES):
+
+                if packet_signature.src_port == "443" or packet_signature.dst_port == "443" : 
+                    return True
+
                 # INTERACTIVE 1 : SIGNATURE-BASED
                 if packet_signature == rule:
                     msg = f"{RULES[offset].__repr__()} ~> {summary}"
@@ -214,9 +221,10 @@ class Analyzer(QtCore.QThread):
                 # print(packet)
 
                 # INTERACTIVE 2 : ARP POISINING
-                if arpcheck(packet):
-                    self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,
-                    packet_signature.dst_port, "ARP Poisoning", True, payload)
+                # if arpcheck(packet):
+                #     self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,
+                #     packet_signature.dst_port, "ARP Poisoning", True, payload)
+                #     return True
 
 
                 http_payload = b""
@@ -240,6 +248,7 @@ class Analyzer(QtCore.QThread):
                     
                     self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
                     packet_signature.dst_ip,packet_signature.dst_port, "",  False, str(http_payload))  
+                    return True
                 
                 # INTERACTIVE 4 : XSS
                 if packet_signature.src_port == "80" or packet_signature.src_port == "443" or packet_signature.dst_port == "80" or packet_signature.dst_port == "443" : 
@@ -255,13 +264,15 @@ class Analyzer(QtCore.QThread):
                             print(matches)
                             self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
                             packet_signature.dst_ip,packet_signature.dst_port, "XSS",  True, str(http_payload)) 
+                            return True
                     # print(matches)
 
                     self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
                     packet_signature.dst_ip,packet_signature.dst_port, "",  False, str(http_payload)) 
+                    return True
 
 
-            print(f"[=] {summary}")
+            # print(f"[=] {summary}")
             # payload = str(bytes(packet[scapy.TCP].payload).decode('UTF8','replace'))
             self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
             packet_signature.dst_ip,packet_signature.dst_port, "",  False, payload)  
@@ -270,7 +281,7 @@ class Analyzer(QtCore.QThread):
     def run(self):
         index = 1
         while not self.is_dead():
-            print(self.task_queue.get())
+            # print(self.task_queue.get())
             self.is_intrusion(Ether(self.task_queue.get()), index)
             index += 1
 

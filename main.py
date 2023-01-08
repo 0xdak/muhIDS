@@ -14,6 +14,7 @@ from time import sleep, time
 from signature import Signature
 from importer import RULES, REGEX_SQL, REGEX_XSS
 
+import urllib.parse
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -29,7 +30,8 @@ class MainWindow(QMainWindow):
         
         self.startButton.clicked.connect(self.startButtonClicked)
 
-        self.row = 0
+        self.row = 0   
+        scapy.load_layer("http")
 
         self.QUEUE = Queue()
         self.TIMESTAMP = str(time()).split('.')[0]
@@ -196,6 +198,7 @@ class Analyzer(QtCore.QThread):
             print(f"[@] {err} {summary}")
             if packet.haslayer(scapy.ARP) and packet[scapy.ARP].op == 2:
                 if arpcheck(packet):
+                    payload = packet[scapy.ARP].hwsrc + " " +packet[scapy.ARP].psrc + " olduğunu söylüyor."
                     self.new_signal.emit(packet[scapy.ARP].psrc,"ARP",packet[scapy.ARP].pdst,
                     "ARP", "ARP Poisoning", True, payload) 
                     return True
@@ -230,46 +233,45 @@ class Analyzer(QtCore.QThread):
                 http_payload = b""
                 # INTERACTIVE 3 : SQL INJECTION
                 if packet_signature.src_port == "80" or packet_signature.src_port == "443" or packet_signature.dst_port == "80" or packet_signature.dst_port == "443" : 
-
+                    print(packet.show)
+                    content = ""
                     try:
+
                         http_payload = get_httppayload(packet)
-                    except:
-                        http_payload = ""
+                        content = str(http_payload[0]).split('\\r\\n\\r\\n')[-1]
+                        content = urllib.parse.unquote(content)
+                        http_payload = http_payload[0].decode("utf8")
+                    except Exception as e:
+                        http_payload = e
 
-                    matches = re.search(REGEX_SQL, str(http_payload), re.IGNORECASE)
+                    matches = re.search(REGEX_SQL, content, re.IGNORECASE)
                 
-
                     if matches is not None:
                         print(matches)
                         if packet.haslayer(http.HTTPRequest) and packet[http.HTTPRequest].Method!=b'GET':
                             self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
-                            packet_signature.dst_ip,packet_signature.dst_port, "SQL Injection",  True, str(http_payload))  
+                            packet_signature.dst_ip,packet_signature.dst_port, "SQL Injection",  True, content)  
                             return True
-                    
-                    self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
-                    packet_signature.dst_ip,packet_signature.dst_port, "",  False, str(http_payload))  
-                    return True
                 
                 # INTERACTIVE 4 : XSS
                 if packet_signature.src_port == "80" or packet_signature.src_port == "443" or packet_signature.dst_port == "80" or packet_signature.dst_port == "443" : 
 
+                    content = ""
                     try:
                         http_payload = get_httppayload(packet)
-                    except:
-                        http_payload = ""
-                    matches = re.search(REGEX_XSS, str(http_payload), re.IGNORECASE)
+                        content = str(http_payload[0]).split('\\r\\n\\r\\n')[-1]
+                        content = urllib.parse.unquote(content)
+                        http_payload = http_payload[0].decode("utf8")
+                    except Exception as e:
+                        http_payload = e
 
+                    matches = re.search(REGEX_XSS, content, re.IGNORECASE)
+                    
                     if packet.haslayer(http.HTTPRequest) and packet[http.HTTPRequest].Method!=b'GET':
                         if matches is not None:
-                            print(matches)
                             self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
-                            packet_signature.dst_ip,packet_signature.dst_port, "XSS",  True, str(http_payload)) 
+                            packet_signature.dst_ip,packet_signature.dst_port, "XSS",  True, content) 
                             return True
-                    # print(matches)
-
-                    self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
-                    packet_signature.dst_ip,packet_signature.dst_port, "",  False, str(http_payload)) 
-                    return True
 
 
             # print(f"[=] {summary}")

@@ -1,4 +1,5 @@
 from ast import main
+import os
 import re
 import subprocess
 from PyQt5.QtWidgets import QMainWindow, QTableWidget, QApplication, QPushButton, QLineEdit
@@ -143,6 +144,7 @@ def arpcheck(packet):
 
         if ipadd not in sadece_ipler:
             print(f"[!] You are under attack,")
+            add_arptable(src_mac)
             return True
         
         print("-------------------------------------------")
@@ -176,6 +178,25 @@ def get_httppayload(packet):
 
     return http_payload
 
+
+def add_iptable(src, dst):
+    rule = ""
+    if (src != "any" and dst != "any"):
+        rule = "/sbin/iptables -A INPUT -d " + dst + " -s " + src + " -j DROP"
+    elif (src != "any" and dst == "any"):
+        rule = "/sbin/iptables -A INPUT -s " + src + " -j DROP"
+    elif (src == "any" and dst != "any"):
+        rule = "/sbin/iptables -A INPUT -d " + dst + " -j DROP"
+
+    print("RULE ADDED: ", rule)
+    if rule!="":
+        os.system(rule)
+
+
+def add_arptable(mac):
+    rule = "arptables -A INPUT --source-mac " + mac + " -j DROP"
+    os.system(rule)
+
 class Analyzer(QtCore.QThread):
     def __init__(self, task_queue):
         super(Analyzer, self).__init__()
@@ -196,6 +217,7 @@ class Analyzer(QtCore.QThread):
             packet_signature = Signature(packet)
         except ValueError as err: # ARP olabilir.
             print(f"[@] {err} {summary}")
+            # INTERACTIVE 1 : ARP POISONING
             if packet.haslayer(scapy.ARP) and packet[scapy.ARP].op == 2:
                 if arpcheck(packet):
                     payload = packet[scapy.ARP].hwsrc + " " +packet[scapy.ARP].psrc + " olduğunu söylüyor."
@@ -204,7 +226,7 @@ class Analyzer(QtCore.QThread):
                     return True
                 else:
                     self.new_signal.emit(packet[scapy.ARP].psrc,"ARP",packet[scapy.ARP].pdst,
-                    "ARP", "", False, "hwsrc: " + packet[scapy.ARP].hwsrc + "| hwdst: " + packet[scapy.ARP].hwdst) 
+                    "ARP", "", False, payload) 
            
         else:
             for offset, rule in enumerate(RULES):
@@ -212,27 +234,25 @@ class Analyzer(QtCore.QThread):
                 if packet_signature.src_port == "443" or packet_signature.dst_port == "443" : 
                     return True
 
-                # INTERACTIVE 1 : SIGNATURE-BASED
+                # INTERACTIVE 2 : SIGNATURE-BASED
                 if packet_signature == rule:
                     msg = f"{RULES[offset].__repr__()} ~> {summary}"
                     print(f"[!!] {msg}")
-                    #TODO RULES[offset].__repr__().split()[1] değişecek, !! tehlikeli index out of range hatası verebilir
+                    
                     self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,
-                    packet_signature.dst_port, RULES[offset].__repr__().split()[1], True, payload) 
-                    return True
-                # print("PROTOMUZ: ", packet_signature.proto)
-                # print(packet)
+                    packet_signature.dst_port, RULES[offset].__repr__().split()[1], True, str(packet_signature)) 
+                    print("PPP: ", packet_signature) 
+                    print("PPP: ", type(packet_signature))
+                    print("PPP: ", rule.src_ip)
+                    print("PPP: ", rule.dst_ip)
+                    add_iptable(rule.src_ip, rule.dst_ip)
 
-                # INTERACTIVE 2 : ARP POISINING
-                # if arpcheck(packet):
-                #     self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,packet_signature.dst_ip,
-                #     packet_signature.dst_port, "ARP Poisoning", True, payload)
-                #     return True
+                    return True
 
 
                 http_payload = b""
                 # INTERACTIVE 3 : SQL INJECTION
-                if packet_signature.src_port == "80" or packet_signature.src_port == "443" or packet_signature.dst_port == "80" or packet_signature.dst_port == "443" : 
+                if packet_signature.src_port == "80" or packet_signature.dst_port == "80": 
                     print(packet.show)
                     content = ""
                     try:
@@ -251,10 +271,11 @@ class Analyzer(QtCore.QThread):
                         if packet.haslayer(http.HTTPRequest) and packet[http.HTTPRequest].Method!=b'GET':
                             self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
                             packet_signature.dst_ip,packet_signature.dst_port, "SQL Injection",  True, content)  
+                            add_iptable(packet_signature.dst_ip, packet_signature.src_ip) # gelecek cevap srcden geleceği için dst'yi verdik
                             return True
                 
                 # INTERACTIVE 4 : XSS
-                if packet_signature.src_port == "80" or packet_signature.src_port == "443" or packet_signature.dst_port == "80" or packet_signature.dst_port == "443" : 
+                if packet_signature.src_port == "80" or packet_signature.dst_port == "80": 
 
                     content = ""
                     try:
@@ -270,12 +291,10 @@ class Analyzer(QtCore.QThread):
                     if packet.haslayer(http.HTTPRequest) and packet[http.HTTPRequest].Method!=b'GET':
                         if matches is not None:
                             self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
-                            packet_signature.dst_ip,packet_signature.dst_port, "XSS",  True, content) 
+                            packet_signature.dst_ip,packet_signature.dst_port, "XSS",  True, content)
+                            add_iptable(packet_signature.dst_ip, packet_signature.src_ip) # gelecek cevap srcden geleceği için dst'yi verdik
                             return True
 
-
-            # print(f"[=] {summary}")
-            # payload = str(bytes(packet[scapy.TCP].payload).decode('UTF8','replace'))
             self.new_signal.emit(packet_signature.src_ip,packet_signature.src_port,
             packet_signature.dst_ip,packet_signature.dst_port, "",  False, payload)  
             return False
